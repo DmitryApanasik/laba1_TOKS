@@ -10,6 +10,8 @@ namespace lab1
         public event EventHandler ReceivedMessage;
         public event EventHandler SerialPortError;
         private string _message;
+        private string _header;
+        private int AS = 1;
 
 
         //проверка состояния
@@ -19,6 +21,8 @@ namespace lab1
         {
             get { return _message; }
         }
+
+        public string Header { get { return _header; } }
 
         public int Boud
         {
@@ -52,14 +56,103 @@ namespace lab1
             serialPort.ErrorReceived += new SerialErrorReceivedEventHandler(serialPort_ErrorReceived);
             serialPort.DataReceived += new SerialDataReceivedEventHandler(SerialPort_DataReceived);
         }
+        public byte[] make(byte[] info)
+        {
+            byte[] package = new byte[19];
+            package[0] = Convert.ToByte(this.AS);
+            package[1] = (this.AS == 1) ? Convert.ToByte(2) : Convert.ToByte(1);
+            for (int i = 0, k = 2; i < info.Length; i++, k++)
+            {
+                package[k] = info[i];
+                if (i == info.Length - 1)
+                { 
+                    for (int j = 0; j < package.Length - 2; j++)
+                        package[k+1] = (byte)(package[k+1] ^ package[j]);
+                    package[k+1] = Convert.ToByte(Convert.ToBoolean(package[k+1]));
+                }
+                
+            }
+            return package;
+        }
+        public byte[] byteStuffing(byte[] notStuffing)
+        {
+            int sizePackage = 0;
+            for (int i = 0; i < notStuffing.Length; i++)
+            {
+                if (notStuffing[i] == Convert.ToByte(85)) sizePackage++;
+            }
+            byte[] newByte = new byte[19 + sizePackage];
+            for (int i = 0, j = 0; i < notStuffing.Length; i++, j++)
+            {
+                if(notStuffing[i] == Convert.ToByte(85))
+                {
+                    newByte[j] = Convert.ToByte((int)notStuffing[i] - 1);
+                    newByte[++j] = Convert.ToByte(94);
+                    continue;
+                }
+                newByte[j] = notStuffing[i];
+            }
+            string bitStringFlag = "01010101";
+            byte[] flag = new byte[bitStringFlag.Length / 8];
+            for (int b = 0; b <= 7; b++)
+            {
+                flag[0] |= (byte)((bitStringFlag[b] == '1' ? 1 : 0) << (7 - b));
+            }
+            byte[] resultPackage = new byte[newByte.Length + 1];
+            resultPackage[0] = flag[0];
+            for (int i = 0; i < newByte.Length; i++)
+            {
+                resultPackage[i + 1] = newByte[i];
+            }
+            return resultPackage;
+        }
 
+        public byte[] byteStuffingencode(byte[] Stuffing)
+        {
+            byte[] stuffingData = new byte[Stuffing.Length - 1];
+            for (int i = 0; i < Stuffing.Length - 1; i++)
+            {
+                stuffingData[i] = Stuffing[i + 1];
+            }
+            byte[] newnotStuffing = new byte[19];
+            for (int i = 0, j = 0; j < newnotStuffing.Length; i++, j++)
+            {
+                if (stuffingData[i] == 94)
+                {
+                    newnotStuffing[j - 1] = Convert.ToByte((int)newnotStuffing[j - 1] + 1);
+                    j--;
+                    continue;
+                }
+                newnotStuffing[j] = stuffingData[i];
+            }
+            return newnotStuffing;
+        }
+        public void setAS (int adresss)
+        {
+            this.AS = adresss;
+        }
         public void ComChat(string data)
         {
-            /*serialPort.RtsEnable = true; *///установка бита RTS для подключения передатчика
             byte[] info = System.Text.Encoding.Unicode.GetBytes(data);
-            serialPort.Write(info, 0, info.Length);
-            //Thread.Sleep(100);//пауза для корректного завершения передатчика
-            //serialPort.RtsEnable = false;
+            byte[] onePackage = new byte[16];
+            for (int i = 0, k = 0; i < info.Length + 1; i++, k++)
+            {
+                if(((i % 16) == 0 && i !=0 && k != 0) || i == info.Length)
+                {
+                    byte[] notStuff = make(onePackage);
+                    byte[] message = byteStuffing(notStuff);
+                    serialPort.Write(message, 0, message.Length);
+                    k = -1;
+                    if (i == info.Length) break;
+                    i--;
+                    for (int j = 0; j < onePackage.Length; j++)
+                    {
+                        onePackage[j] = 0;
+                    }
+                    continue;
+                }
+                onePackage[k] = info[i];
+            }
         }
 
         #region events
@@ -69,7 +162,15 @@ namespace lab1
         {
             byte[] info = new byte[serialPort.BytesToRead];
             serialPort.Read(info, 0, info.Length);
-            _message = System.Text.Encoding.Unicode.GetString(info); //получаем string из byte[]
+            byte[] data = byteStuffingencode(info);
+            byte[] message = new byte[16];
+            for (int i=0; i < message.Length; i++)
+            {
+                message[i] = data[i + 2];
+            }
+            _message = System.Text.Encoding.Unicode.GetString(message);
+            _header = info[0].ToString() + ", " + data[0].ToString()+ ", " + data[1].ToString() + ", " +
+                _message + ", " + data[data.Length-1].ToString() + "\n"; 
             ReceivedMessage?.Invoke(this, EventArgs.Empty);//вызов функции receivedMessage
         }
         #endregion

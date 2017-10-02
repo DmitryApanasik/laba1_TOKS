@@ -12,10 +12,14 @@ namespace lab1
     public partial class Form1 : Form
     {
         private string message;
+
+        private string head;
      
         private readonly ConnectionTwoPorts serialPort;
 
-        public string Message { get { return message; }  private set { message = value; } } 
+        public string Message { get { return message; }  private set { message = value; } }
+
+        public string Header { get { return head; } private set { head = value; } }
 
         public Form1()
         {
@@ -26,7 +30,6 @@ namespace lab1
             serialPort.SerialPortError += new EventHandler(errorInPort);
 
             buttonConnect.Click += new EventHandler(buttonConnectClick);
-            //buttonDisconnect.Click += new EventHandler(buttonDisconnectClick);
             buttonSendMessage.Click += new EventHandler(buttonSendMessageClick);
         }
 
@@ -40,9 +43,13 @@ namespace lab1
        }
 
         //установка текста в форму выводы сообщения
-        public void setTextToOutput(string data) { receivedData.Text = data; }
+        public void setTextToOutput(string data) {
+            receivedData.Text = data;
+        }
         //уустановка текста в окно дебаг
-        public void setTextToDebug(string data) { textInformation.Text += data + "\n\n"; }
+        public void setTextToDebug(string data) {
+            textInformation.Text += data + "\n\n";
+        }
 
         private void buttonConnectClick(object sender, EventArgs e) {
             try
@@ -82,15 +89,25 @@ namespace lab1
             {
                 this.setTextToDebug(ex.Message);
             }
+            return;
         }
         private void receivedMessage(object sender, EventArgs e)
         {
             this.setTextToOutput(serialPort.Message);
+            this.setTextToDebug(serialPort.Header);
         }
-
         private void errorInPort(object sender, EventArgs e)
         {
             this.setTextToDebug(" Error.\n\n");
+        }
+
+        private void radioButton1_CheckedChanged(object sender, EventArgs e)
+        {
+            serialPort.setAS(1);
+        }
+        private void radioButton2_CheckedChanged(object sender, EventArgs e)
+        {
+            serialPort.setAS(2);
         }
     }
 }

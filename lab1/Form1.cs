@@ -26,7 +26,6 @@ namespace lab1
             serialPort.SerialPortError += new EventHandler(errorInPort);
 
             buttonConnect.Click += new EventHandler(buttonConnectClick);
-            //buttonDisconnect.Click += new EventHandler(buttonDisconnectClick);
             buttonSendMessage.Click += new EventHandler(buttonSendMessageClick);
         }
 
@@ -40,7 +39,7 @@ namespace lab1
        }
 
         //установка текста в форму выводы сообщения
-        public void setTextToOutput(string data) { receivedData.Text = data; }
+        public void setTextToOutput(string data) { receivedData.Text += data; }
         //уустановка текста в окно дебаг
         public void setTextToDebug(string data) { textInformation.Text += data + "\n\n"; }
 
@@ -75,8 +74,7 @@ namespace lab1
             textBoxSendMessage.Clear();
             try
             {
-                if (serialPort.isReady()) serialPort.ComChat(this.Message);
-                else this.setTextToDebug(" The channel is busy! Wait... ");
+                serialPort.ComChat(this.Message, this);
             }
             catch (Exception ex)
             {
